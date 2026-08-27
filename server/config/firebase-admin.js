@@ -1,12 +1,23 @@
-const admin = require("firebase-admin");
+const { initializeApp, cert, getApps } = require("firebase-admin/app");
+const { getFirestore } = require("firebase-admin/firestore");
+const { getAuth } = require("firebase-admin/auth");
+const dotenv = require("dotenv");
+const path = require("path");
 
-if (!admin.apps.length) {
-    admin.initializeApp({
-        credential: admin.credential.applicationDefault()
+dotenv.config();
+
+const serviceAccount = require(
+    path.join(__dirname, "../../serviceAccountKey.json")
+);
+
+const app = getApps().length
+    ? getApps()[0]
+    : initializeApp({
+        credential: cert(serviceAccount),
+        projectId: process.env.GCLOUD_PROJECT
     });
-}
 
-const db = admin.firestore();
-const auth = admin.auth();
+const db = getFirestore(app);
+const auth = getAuth(app);
 
-module.exports = { admin, db, auth };
+module.exports = { db, auth };
