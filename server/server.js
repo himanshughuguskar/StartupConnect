@@ -20,6 +20,16 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
+const userRoutes = require("./routes/users");
+const matchRoutes = require("./routes/matches");
+const messageRoutes = require("./routes/messages");
+const contactRoutes = require("./routes/contacts");
+
+app.use("/api/users", userRoutes);
+app.use("/api/matches", matchRoutes);
+app.use("/api/messages", messageRoutes);
+app.use("/api/contacts", contactRoutes);
+
 app.use(express.static(path.join(__dirname, "../client")));
 
 app.get("/", (req, res) => {
