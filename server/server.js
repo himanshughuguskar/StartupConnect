@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 const http = require("http");
 const cors = require("cors");
 const dotenv = require("dotenv");
@@ -19,8 +20,10 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
+app.use(express.static(path.join(__dirname, "../client")));
+
 app.get("/", (req, res) => {
-    res.send("StartupConnect Server Running");
+    res.sendFile(path.join(__dirname, "../client/index.html"));
 });
 
 io.on("connection", (socket) => {

@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Finding a Match — StartupConnect</title>
+
+<style>
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+/* ===== style.css ===== */
+/* =========================================================
+   STARTUPCONNECT — GLOBAL DESIGN SYSTEM
+   Theme: "Streaming Boardroom" — a Netflix-dark viewing
+   experience re-tuned for a business/finance audience.
+   Deep near-black backgrounds + a deep crimson primary
+   (instead of Netflix's pure red) + a muted gold accent
+   that signals "investment / money" rather than entertainment.
+   ========================================================= */
+
+:root {
+  /* ---- Color tokens ---- */
+  --bg: #0a0d12;             /* app background, near-black w/ cool tint */
+  --bg-elevated: #0f131a;    /* slightly raised background (headers) */
+  --surface: #141920;        /* cards, panels */
+  --surface-2: #1b212b;      /* hover/active surface, inputs */
+  --border: #262d38;
+  --border-soft: #1e2530;
+
+  --text: #edeff2;
+  --text-muted: #8b93a1;
+  --text-faint: #5b6472;
+
+  --primary: #b3121e;        /* deep business crimson, not Netflix-red */
+  --primary-hover: #8f0e18;
+  --primary-soft: rgba(179, 18, 30, 0.14);
+
+  --gold: #c9a24b;           /* "investor / capital" accent */
+  --gold-hover: #b38f3f;
+  --gold-soft: rgba(201, 162, 75, 0.14);
+
+  --success: #2ecc71;
+  --success-soft: rgba(46, 204, 113, 0.14);
+  --danger: #e5484d;
+
+  /* ---- Typography ---- */
+  --font-display: "Space Grotesk", "Segoe UI", sans-serif;
+  --font-body: "Inter", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+
+  /* ---- Spacing scale ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* ---- Radius / shadow ---- */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-glow: 0 0 0 1px rgba(179, 18, 30, 0.35), 0 8px 30px rgba(179, 18, 30, 0.18);
+
+  --transition: 180ms ease;
+  --max-width: 1200px;
+}
+
+
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul {
+  list-style: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+textarea,
+select {
+  font-family: inherit;
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 var(--space-5);
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+/* =========================================================
+   NAVBAR — shared across every page
+   ========================================================= */
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(10, 13, 18, 0.85);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.navbar .container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 72px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.logo .logo-mark {
+  color: var(--primary);
+}
+
+.nav-links {
+  display: flex;
+  gap: var(--space-6);
+  align-items: center;
+}
+
+.nav-links a {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  transition: color var(--transition);
+}
+
+.nav-links a:hover {
+  color: var(--text);
+}
+
+.nav-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 1.5rem;
+}
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0.85rem 1.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: transform var(--transition), background var(--transition), border-color var(--transition), box-shadow var(--transition);
+  white-space: nowrap;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+  box-shadow: var(--shadow-glow);
+}
+
+.btn-gold {
+  background: var(--gold);
+  color: #12161c;
+}
+
+.btn-gold:hover {
+  background: var(--gold-hover);
+}
+
+.btn-secondary {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.btn-secondary:hover {
+  border-color: var(--text-faint);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+.btn-ghost:hover {
+  color: var(--text);
+  border-color: var(--text-faint);
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border-color: rgba(229, 72, 77, 0.4);
+}
+
+.btn-danger:hover {
+  background: rgba(229, 72, 77, 0.1);
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn-lg {
+  padding: 1.1rem 2rem;
+  font-size: 1.05rem;
+}
+
+/* =========================================================
+   CARDS
+   ========================================================= */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+}
+
+/* =========================================================
+   FORM ELEMENTS
+   ========================================================= */
+.field {
+  margin-bottom: var(--space-5);
+}
+
+.field label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+  color: var(--text-muted);
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.8rem 1rem;
+  font-size: 0.95rem;
+  transition: border-color var(--transition);
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: var(--gold);
+}
+
+.field textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.field-error {
+  display: none;
+  color: var(--danger);
+  font-size: 0.8rem;
+  margin-top: var(--space-1);
+}
+
+.field.has-error input,
+.field.has-error textarea,
+.field.has-error select {
+  border-color: var(--danger);
+}
+
+.field.has-error .field-error {
+  display: block;
+}
+
+/* =========================================================
+   TICKER — signature element
+   A scrolling stock-ticker style strip: Netflix's "always
+   something playing" energy, expressed as market data.
+   ========================================================= */
+.ticker {
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-soft);
+  overflow: hidden;
+  white-space: nowrap;
+  padding: var(--space-2) 0;
+}
+
+.ticker-track {
+  display: inline-flex;
+  gap: var(--space-7);
+  animation: ticker-scroll 28s linear infinite;
+  padding-left: 100%;
+}
+
+.ticker-track span {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.ticker-track span strong {
+  color: var(--gold);
+  font-weight: 500;
+}
+
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track {
+    animation: none;
+  }
+}
+
+/* =========================================================
+   LANDING PAGE (index.html)
+   ========================================================= */
+.hero {
+  padding: var(--space-8) 0 var(--space-7);
+  border-bottom: 1px solid var(--border-soft);
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 0%, var(--primary-soft), transparent 70%);
+}
+
+.hero-inner {
+  max-width: 760px;
+  text-align: center;
+  margin: 0 auto;
+}
+
+.hero h1 {
+  font-size: clamp(2.4rem, 5vw, 4rem);
+  margin: var(--space-4) 0 var(--space-5);
+}
+
+.hero-sub {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  max-width: 560px;
+  margin: 0 auto var(--space-6);
+}
+
+.hero-actions {
+  display: flex;
+  gap: var(--space-4);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.section-title {
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  margin: var(--space-3) 0 var(--space-6);
+}
+
+.features {
+  padding: var(--space-8) 0;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+}
+
+.feature-card {
+  transition: transform var(--transition), border-color var(--transition);
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--primary);
+}
+
+.feature-icon {
+  font-size: 1.8rem;
+  margin-bottom: var(--space-3);
+}
+
+.feature-card h3 {
+  margin-bottom: var(--space-2);
+  font-size: 1.15rem;
+}
+
+.feature-card p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.how-it-works {
+  padding: var(--space-8) 0;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-5);
+}
+
+.step-num {
+  display: block;
+  font-family: var(--font-mono);
+  color: var(--gold);
+  font-size: 0.85rem;
+  margin-bottom: var(--space-2);
+}
+
+.step h4 {
+  margin-bottom: var(--space-2);
+  font-size: 1.05rem;
+}
+
+.step p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .feature-grid { grid-template-columns: 1fr; }
+  .steps-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .steps-grid { grid-template-columns: 1fr; }
+}
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
+.site-footer {
+  border-top: 1px solid var(--border-soft);
+  padding: var(--space-7) 0 var(--space-6);
+  margin-top: var(--space-8);
+}
+
+.site-footer .container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.footer-note {
+  color: var(--text-faint);
+  font-size: 0.85rem;
+  font-family: var(--font-mono);
+}
+
+/* =========================================================
+   MODAL (shared)
+   ========================================================= */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 5, 7, 0.72);
+  backdrop-filter: blur(3px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: var(--space-4);
+}
+
+.modal-overlay.active {
+  display: flex;
+}
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  max-width: 420px;
+  width: 100%;
+  box-shadow: var(--shadow-md);
+  animation: modal-in 200ms ease;
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modal h3 {
+  margin-bottom: var(--space-3);
+}
+
+.modal p {
+  color: var(--text-muted);
+  margin-bottom: var(--space-5);
+  font-size: 0.95rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+}
+
+.modal-actions .btn {
+  flex: 1;
+}
+
+/* Utility */
+.text-center { text-align: center; }
+.mt-2 { margin-top: var(--space-4); }
+.mt-4 { margin-top: var(--space-6); }
+.hidden { display: none !important; }
+
+@media (max-width: 768px) {
+  .nav-links {
+    position: fixed;
+    top: 72px;
+    left: 0;
+    right: 0;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border-soft);
+    flex-direction: column;
+    align-items: flex-start;
+    padding: var(--space-5);
+    gap: var(--space-4);
+    transform: translateY(-150%);
+    transition: transform var(--transition);
+  }
+
+  .nav-links.open {
+    transform: translateY(0);
+  }
+
+  .nav-toggle {
+    display: block;
+  }
+}
+
+
+/* ===== match.css ===== */
+/* =========================================================
+   match.css
+   ========================================================= */
+
+.match-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 40%, var(--primary-soft), transparent 70%);
+}
+
+.match-panel {
+  text-align: center;
+  max-width: 440px;
+}
+
+.match-state h1 {
+  font-size: 1.6rem;
+  margin-bottom: var(--space-2);
+}
+
+.match-state p {
+  color: var(--text-muted);
+}
+
+/* ---- Radar loader (signature searching animation) ---- */
+.radar {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  margin: 0 auto var(--space-6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.radar-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid var(--primary);
+  opacity: 0;
+  animation: radar-pulse 2.4s ease-out infinite;
+}
+
+.ring-1 { width: 60px; height: 60px; animation-delay: 0s; }
+.ring-2 { width: 60px; height: 60px; animation-delay: 0.8s; }
+.ring-3 { width: 60px; height: 60px; animation-delay: 1.6s; }
+
+@keyframes radar-pulse {
+  0% {
+    width: 60px;
+    height: 60px;
+    opacity: 0.9;
+    border-color: var(--primary);
+  }
+  100% {
+    width: 160px;
+    height: 160px;
+    opacity: 0;
+    border-color: var(--gold);
+  }
+}
+
+.radar-core {
+  position: relative;
+  z-index: 2;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+}
+
+.search-status {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--gold) !important;
+  margin: var(--space-3) 0 var(--space-6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .radar-ring {
+    animation: none;
+    opacity: 0.3;
+  }
+}
+
+/* ---- Match found state ---- */
+.found-burst {
+  font-size: 3.5rem;
+  margin-bottom: var(--space-4);
+  animation: burst-pop 500ms ease;
+}
+
+@keyframes burst-pop {
+  0% { transform: scale(0.4); opacity: 0; }
+  70% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+.hidden {
+  display: none !important;
+}
+
+</style>
+</head>
+<body>
+
+  <div class="match-screen">
+    <div class="match-panel">
+
+      <!-- SEARCHING STATE -->
+      <div id="searchingState" class="match-state">
+        <div class="radar">
+          <div class="radar-ring ring-1"></div>
+          <div class="radar-ring ring-2"></div>
+          <div class="radar-ring ring-3"></div>
+          <div class="radar-core">🔍</div>
+        </div>
+
+        <h1>Finding your perfect connection...</h1>
+        <p id="searchSubtext">Looking for an Investor</p>
+        <p class="search-status" id="searchStatusText">Scanning the network…</p>
+
+        <button class="btn btn-ghost" onclick="cancelMatching()">Cancel Search</button>
+      </div>
+
+      <!-- MATCH FOUND STATE -->
+      <div id="foundState" class="match-state hidden">
+        <div class="found-burst">🎉</div>
+        <h1>Match Found!</h1>
+        <p id="foundSubtext">Connecting you now…</p>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+/* ===== main.js ===== */
+/* =========================================================
+   main.js
+   Shared utilities loaded on every page: mobile nav toggle,
+   localStorage helpers, and shared mock data used by other
+   JS files (profile.js, dashboard.js, chat.js, etc).
+   ========================================================= */
+
+// ---- Mobile nav toggle (used on any page that has a .nav-toggle) ----
+function initNavToggle() {
+  const toggle = document.querySelector(".nav-toggle");
+  const links = document.querySelector(".nav-links");
+  if (!toggle || !links) return;
+
+  toggle.addEventListener("click", () => {
+    links.classList.toggle("open");
+  });
+}
+
+document.addEventListener("DOMContentLoaded", initNavToggle);
+
+/* ---------------------------------------------------------
+   localStorage helpers
+   These are simple wrappers so the whole team uses the same
+   storage keys. Once a real backend exists, these functions
+   can be swapped for API calls without touching every page.
+--------------------------------------------------------- */
+const STORAGE_KEYS = {
+  isLoggedIn: "sc_isLoggedIn",
+  userProfile: "sc_userProfile",
+  chatMessages: "sc_chatMessages",
+  currentMatch: "sc_currentMatch",
+  connectionHistory: "sc_connectionHistory",
+};
+
+function scGet(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    console.warn("Could not read from localStorage:", key, e);
+    return null;
+  }
+}
+
+function scSet(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function scRemove(key) {
+  localStorage.removeItem(key);
+}
+
+/* ---------------------------------------------------------
+   NOTE ON DATA: this frontend does not invent or display any
+   fabricated user profiles, names, or statistics. Anywhere the
+   app currently has no real backend connection, it shows a
+   genuine empty state or a clearly-labeled "pending backend
+   integration" placeholder instead of fake sample content.
+--------------------------------------------------------- */
+
+/**
+ * getSimulatedMatch()
+ * INTEGRATION POINT: Matchmaking API / Socket.IO
+ *
+ * There is no real matchmaking backend yet, so this returns a
+ * single neutral placeholder object (not an invented person) so
+ * the matching → chat flow can still be demonstrated end to end.
+ * Replace this entirely once the backend emits a real match:
+ *
+ *   socket.on("match-found", (matchData) => { ... use matchData ... });
+ */
+function getSimulatedMatch() {
+  const myProfile = scGet(STORAGE_KEYS.userProfile);
+  const otherRole = myProfile?.role === "Investor" ? "Startup" : "Investor";
+
+  return {
+    name: `${otherRole} (pending backend integration)`,
+    role: otherRole,
+    focus: "Not yet connected to a real matchmaking backend",
+    initials: otherRole === "Startup" ? "SU" : "IN",
+  };
+}
+
+/**
+ * recordConnectionHistory(match, contactShared)
+ * Genuinely stores a record of a completed chat session in this
+ * browser's localStorage — no invented names or dates. This is
+ * real client-side history, just not yet synced to a database.
+ * INTEGRATION POINT: write this record to Firestore / an API
+ * instead of (or in addition to) localStorage once available.
+ */
+function recordConnectionHistory(match, contactShared) {
+  const history = scGet(STORAGE_KEYS.connectionHistory) || [];
+  history.unshift({
+    name: match.name,
+    role: match.role,
+    date: new Date().toLocaleDateString(undefined, { month: "short", day: "2-digit", year: "numeric" }),
+    contactShared: !!contactShared,
+    initials: match.initials,
+  });
+  scSet(STORAGE_KEYS.connectionHistory, history);
+}
+
+/**
+ * logout()
+ * INTEGRATION POINT: Firebase Authentication (sign out)
+ * Shared across every page that has a Logout button.
+ */
+function logout() {
+  scRemove(STORAGE_KEYS.isLoggedIn);
+  window.location.href = "index.html";
+}
+
+
+/* ===== matching.js ===== */
+/* =========================================================
+   matching.js
+   Simulates the matchmaking search for demo purposes.
+   ========================================================= */
+
+const SEARCH_STATUS_MESSAGES = [
+  "Scanning the network…",
+  "Checking industry overlap…",
+  "Looking for the right stage fit…",
+  "Almost there…",
+];
+
+let statusInterval = null;
+let matchTimeout = null;
+
+document.addEventListener("DOMContentLoaded", () => {
+  const profile = scGet(STORAGE_KEYS.userProfile);
+  const lookingFor = profile?.role === "Investor" ? "Startup" : "Investor";
+  document.getElementById("searchSubtext").textContent = `Looking for a ${lookingFor}`;
+
+  startMatching();
+});
+
+/**
+ * startMatching()
+ * INTEGRATION POINT: Socket.IO / Matchmaking API
+ *
+ * This currently fakes a search with setTimeout + rotating status
+ * text. A teammate should replace this with a real Socket.IO flow:
+ *
+ *   socket.emit("join-matchmaking-queue", { userId });
+ *   socket.on("match-found", (matchData) => { ... });
+ */
+function startMatching() {
+  let statusIndex = 0;
+  const statusEl = document.getElementById("searchStatusText");
+
+  statusInterval = setInterval(() => {
+    statusIndex = (statusIndex + 1) % SEARCH_STATUS_MESSAGES.length;
+    statusEl.textContent = SEARCH_STATUS_MESSAGES[statusIndex];
+  }, 1400);
+
+  // Simulate finding a match after a few seconds
+  matchTimeout = setTimeout(() => {
+    const match = getSimulatedMatch();
+    scSet(STORAGE_KEYS.currentMatch, match);
+    showMatchFound(match);
+  }, 4200);
+}
+
+function showMatchFound(match) {
+  clearInterval(statusInterval);
+
+  document.getElementById("searchingState").classList.add("hidden");
+  document.getElementById("foundState").classList.remove("hidden");
+  document.getElementById("foundSubtext").textContent =
+    `You're paired with ${match.name} (${match.role})`;
+
+  // Give the user a moment to see the "Match Found!" state, then
+  // move into the chat room.
+  setTimeout(() => {
+    window.location.href = "chat.html";
+  }, 1600);
+}
+
+/**
+ * cancelMatching()
+ * INTEGRATION POINT: Socket.IO
+ * Should emit a "leave-matchmaking-queue" event on a real backend.
+ */
+function cancelMatching() {
+  clearInterval(statusInterval);
+  clearTimeout(matchTimeout);
+  window.location.href = "dashboard.html";
+}
+
+</script>
+</body>
+</html>
