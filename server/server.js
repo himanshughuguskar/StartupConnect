@@ -5,6 +5,14 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const { Server } = require("socket.io");
 
+const {
+    addUserToQueue,
+    removeUserFromQueue,
+    findMatch
+} = require("./services/matchmaking");
+
+const { createMatch } = require("./services/matches");
+
 dotenv.config();
 
 const app = express();
@@ -39,7 +47,78 @@ app.get("/", (req, res) => {
 io.on("connection", (socket) => {
     console.log("User connected:", socket.id);
 
+    socket.on("findMatch", async (data) => {
+        try {
+            const user = {
+                socketId: socket.id,
+                userId: data.userId,
+                role: data.role
+            };
+
+            const added = addUserToQueue(user);
+
+            if (!added) {
+                return;
+            }
+
+            const match = findMatch(user);
+
+            if (!match) {
+                socket.emit("waitingForMatch");
+                return;
+            }
+
+            const roomId = `room_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+
+            const user1Socket = io.sockets.sockets.get(match.user1.socketId);
+            const user2Socket = io.sockets.sockets.get(match.user2.socketId);
+
+            if (!user1Socket || !user2Socket) {
+                return;
+            }
+
+            user1Socket.join(roomId);
+            user2Socket.join(roomId);
+
+            // Save match in Firestore
+            const matchId = roomId;
+
+            await createMatch(
+                matchId,
+                match.user1.userId,
+                match.user2.userId
+            );
+
+            user1Socket.emit("matchFound", {
+                roomId,
+                matchId,
+                matchedUserId: match.user2.userId
+            });
+
+            user2Socket.emit("matchFound", {
+                roomId,
+                matchId,
+                matchedUserId: match.user1.userId
+            });
+
+            console.log(
+                `MATCH FOUND: ${match.user1.userId} <-> ${match.user2.userId}`
+            );
+
+        } catch (error) {
+            console.error("Matchmaking error:", error);
+            socket.emit("matchmakingError", {
+                error: error.message
+            });
+        }
+    });
+
+    socket.on("cancelMatch", () => {
+        removeUserFromQueue(socket.id);
+    });
+
     socket.on("disconnect", () => {
+        removeUserFromQueue(socket.id);
         console.log("User disconnected:", socket.id);
     });
 });
