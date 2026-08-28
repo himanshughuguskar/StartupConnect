@@ -13,6 +13,11 @@ const {
 
 const { createMatch } = require("./services/matches");
 
+const {
+    createMessage,
+    getMessagesByMatch
+} = require("./services/messages");
+
 dotenv.config();
 
 const app = express();
@@ -111,6 +116,121 @@ io.on("connection", (socket) => {
                 error: error.message
             });
         }
+    });
+
+        // Join an existing chat room
+    socket.on("joinChat", ({ roomId }) => {
+        if (!roomId) {
+            socket.emit("chatError", {
+                error: "roomId is required"
+            });
+            return;
+        }
+
+        socket.join(roomId);
+
+        console.log(
+            `Socket ${socket.id} joined chat room ${roomId}`
+        );
+    });
+
+
+    // Send a real-time chat message
+    socket.on("sendMessage", async (data) => {
+        try {
+            const {
+                matchId,
+                roomId,
+                senderId,
+                receiverId,
+                message
+            } = data;
+
+            if (
+                !matchId ||
+                !roomId ||
+                !senderId ||
+                !receiverId ||
+                !message ||
+                !message.trim()
+            ) {
+                socket.emit("chatError", {
+                    error: "matchId, roomId, senderId, receiverId and message are required"
+                });
+
+                return;
+            }
+
+            // Make sure the sender is actually inside this room
+            const room = io.sockets.adapter.rooms.get(roomId);
+
+            if (!room || !room.has(socket.id)) {
+                socket.emit("chatError", {
+                    error: "You are not connected to this chat room"
+                });
+
+                return;
+            }
+
+            const messageId = `${matchId}_${Date.now()}_${socket.id}`;
+
+            // Save message in Firestore
+            const savedMessage = await createMessage(
+                messageId,
+                {
+                    matchId,
+                    senderId,
+                    receiverId,
+                    message: message.trim()
+                }
+            );
+
+            // Send message to everyone in the room
+            io.to(roomId).emit("newMessage", savedMessage);
+
+            console.log(
+                `Message sent in ${roomId}: ${senderId} -> ${receiverId}`
+            );
+
+        } catch (error) {
+            console.error("Send message error:", error);
+
+            socket.emit("chatError", {
+                error: error.message
+            });
+        }
+    });
+
+
+    // Typing indicator
+    socket.on("typing", ({ roomId, userId }) => {
+        if (!roomId || !userId) return;
+
+        socket.to(roomId).emit("userTyping", {
+            userId
+        });
+    });
+
+
+    // Stop typing indicator
+    socket.on("stopTyping", ({ roomId, userId }) => {
+        if (!roomId || !userId) return;
+
+        socket.to(roomId).emit("userStoppedTyping", {
+            userId
+        });
+    });
+
+
+    // Leave chat room
+    socket.on("leaveChat", ({ roomId }) => {
+        if (!roomId) return;
+
+        socket.leave(roomId);
+
+        console.log(
+            `Socket ${socket.id} left chat room ${roomId}`
+        );
     });
 
     socket.on("cancelMatch", () => {

@@ -865,6 +865,7 @@ h1, h2, h3, h4 {
 }
 
 </style>
+<script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
 
@@ -1042,6 +1043,243 @@ function scRemove(key) {
    integration" placeholder instead of fake sample content.
 --------------------------------------------------------- */
 
+/* =========================================================
+   SOCKET.IO CHAT INTEGRATION
+   ========================================================= */
+
+let socket = null;
+
+let currentUserId = null;
+let currentMatchId = null;
+let currentRoomId = null;
+let matchedUserId = null;
+
+let typingTimer = null;
+
+/*
+ * Get the logged-in user's profile.
+ */
+function initializeChatData() {
+
+  const profile = scGet(STORAGE_KEYS.userProfile);
+
+  if (!profile) {
+    console.warn("No user profile found.");
+    return;
+  }
+
+  /*
+   * Your Firebase/user profile should contain uid.
+   * We also support userId in case another frontend module
+   * uses that property.
+   */
+  currentUserId =
+    profile.uid ||
+    profile.userId ||
+    profile.id ||
+    null;
+
+  /*
+   * Read the real match created by matchmaking.
+   */
+  const match = scGet(STORAGE_KEYS.currentMatch);
+
+  if (match) {
+
+    currentMatchId =
+      match.matchId ||
+      match.id ||
+      null;
+
+    currentRoomId =
+      match.roomId ||
+      null;
+
+    matchedUserId =
+      match.matchedUserId ||
+      match.user2Id ||
+      null;
+  }
+
+  console.log("Chat data:", {
+    currentUserId,
+    currentMatchId,
+    currentRoomId,
+    matchedUserId
+  });
+}
+
+function connectChatSocket() {
+
+  socket = io();
+
+  socket.on("connect", () => {
+
+    console.log("Chat Socket connected:", socket.id);
+
+    /*
+     * Join the current match room.
+     */
+    if (currentRoomId) {
+
+      socket.emit("joinChat", {
+        roomId: currentRoomId
+      });
+
+      console.log(
+        "Joined chat room:",
+        currentRoomId
+      );
+
+      loadChatHistory();
+    }
+  });
+
+  socket.on("connect_error", (error) => {
+
+    console.error(
+      "Socket connection error:",
+      error
+    );
+
+  });
+
+  /*
+   * Receive a real-time message.
+   */
+  socket.on("newMessage", (msg) => {
+
+    console.log(
+      "NEW MESSAGE:",
+      msg
+    );
+
+    receiveMessageFromServer(msg);
+
+  });
+
+  /*
+   * Other user started typing.
+   */
+  socket.on("userTyping", (data) => {
+
+    console.log(
+      "USER TYPING:",
+      data
+    );
+
+    showTypingIndicator(data.userId);
+
+  });
+
+  /*
+   * Other user stopped typing.
+   */
+  socket.on("userStoppedTyping", (data) => {
+
+    console.log(
+      "USER STOPPED TYPING:",
+      data
+    );
+
+    hideTypingIndicator();
+
+  });
+
+  /*
+   * Chat error.
+   */
+  socket.on("chatError", (data) => {
+
+    console.error(
+      "Chat error:",
+      data
+    );
+
+    alert(
+      data.error || "Chat error occurred"
+    );
+
+  });
+}
+
+async function loadChatHistory() {
+
+  if (!currentMatchId) {
+    console.warn(
+      "Cannot load history: matchId missing"
+    );
+
+    return;
+  }
+
+  try {
+
+    const response = await fetch(
+      `/api/messages/match/${encodeURIComponent(currentMatchId)}`
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `HTTP ${response.status}`
+      );
+    }
+
+    const messages = await response.json();
+
+    console.log(
+      "Chat history loaded:",
+      messages
+    );
+
+    chatMessages = messages.map(msg => ({
+      from:
+        msg.senderId === currentUserId
+          ? "me"
+          : "them",
+
+      text: msg.message,
+
+      time: formatMessageTime(msg.sentAt)
+    }));
+
+    renderMessages();
+
+  } catch (error) {
+
+    console.error(
+      "Failed to load chat history:",
+      error
+    );
+
+  }
+}
+
+function formatMessageTime(timestamp) {
+
+  if (!timestamp) {
+    return currentTimeLabel();
+  }
+
+  /*
+   * Firestore Admin SDK timestamps arrive from
+   * the API as {_seconds, _nanoseconds}.
+   */
+
+  if (timestamp._seconds) {
+
+    return new Date(
+      timestamp._seconds * 1000
+    ).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+
+  }
+
+  return currentTimeLabel();
+}
+
 /**
  * getSimulatedMatch()
  * INTEGRATION POINT: Matchmaking API / Socket.IO
@@ -1173,14 +1411,81 @@ function currentTimeLabel() {
  *   socket.emit("send-message", { roomId, text });
  */
 function sendMessage() {
-  const input = document.getElementById("messageInput");
-  const text = input.value.trim();
+
+  const input =
+    document.getElementById("messageInput");
+
+  const text =
+    input.value.trim();
+
   if (!text) return;
 
-  chatMessages.push({ from: "me", text, time: currentTimeLabel() });
-  scSet(STORAGE_KEYS.chatMessages, chatMessages);
-  renderMessages();
+  if (!socket || !socket.connected) {
+
+    alert(
+      "Chat server is not connected."
+    );
+
+    return;
+  }
+
+  if (!currentMatchId ||
+      !currentRoomId ||
+      !currentUserId ||
+      !matchedUserId) {
+
+    console.error("Missing chat data:", {
+      currentMatchId,
+      currentRoomId,
+      currentUserId,
+      matchedUserId
+    });
+
+    alert(
+      "Chat session information is missing."
+    );
+
+    return;
+  }
+
+  socket.emit("sendMessage", {
+
+    matchId: currentMatchId,
+
+    roomId: currentRoomId,
+
+    senderId: currentUserId,
+
+    receiverId: matchedUserId,
+
+    message: text
+
+  });
+
   input.value = "";
+
+  stopTyping();
+
+}
+
+function receiveMessageFromServer(msg) {
+
+  const from =
+    msg.senderId === currentUserId
+      ? "me"
+      : "them";
+
+  chatMessages.push({
+
+    from,
+
+    text: msg.message,
+
+    time: formatMessageTime(msg.sentAt)
+
+  });
+
+  renderMessages();
 }
 
 /**
@@ -1195,12 +1500,8 @@ function sendMessage() {
  * For this demo it's called manually via setTimeout to simulate
  * the other person replying.
  */
-function receiveMessage(text) {
-  chatMessages.push({ from: "them", text, time: currentTimeLabel() });
-  scSet(STORAGE_KEYS.chatMessages, chatMessages);
-  renderMessages();
-}
 
+ 
 /* =========================================================
    CONTACT SHARING FLOW
    ========================================================= */
@@ -1215,6 +1516,54 @@ function closeModal(id) {
 
 function requestContactShare() {
   openModal("shareContactModal");
+}
+
+function startTyping() {
+
+  if (!socket || !socket.connected) {
+    return;
+  }
+
+  if (!currentRoomId || !currentUserId) {
+    return;
+  }
+
+  socket.emit("typing", {
+
+    roomId: currentRoomId,
+
+    userId: currentUserId
+
+  });
+
+  clearTimeout(typingTimer);
+
+  typingTimer = setTimeout(() => {
+
+    stopTyping();
+
+  }, 1500);
+}
+
+function stopTyping() {
+
+  clearTimeout(typingTimer);
+
+  if (!socket || !socket.connected) {
+    return;
+  }
+
+  if (!currentRoomId || !currentUserId) {
+    return;
+  }
+
+  socket.emit("stopTyping", {
+
+    roomId: currentRoomId,
+
+    userId: currentUserId
+
+  });
 }
 
 /**
@@ -1300,6 +1649,18 @@ function leaveChat() {
   scRemove(STORAGE_KEYS.currentMatch);
   window.location.href = "dashboard.html";
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+
+  console.log("CHAT PAGE INITIALIZING...");
+
+  initializeChatData();
+
+  console.log("Chat data initialized.");
+
+  connectChatSocket();
+
+});
 
 </script>
 </body>
