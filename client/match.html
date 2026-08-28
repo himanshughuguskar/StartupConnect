@@ -755,6 +755,7 @@ h1, h2, h3, h4 {
     </div>
   </div>
 
+  <script src="/socket.io/socket.io.js"></script>
 <script>
 /* ===== main.js ===== */
 /* =========================================================
@@ -828,17 +829,7 @@ function scRemove(key) {
  *
  *   socket.on("match-found", (matchData) => { ... use matchData ... });
  */
-function getSimulatedMatch() {
-  const myProfile = scGet(STORAGE_KEYS.userProfile);
-  const otherRole = myProfile?.role === "Investor" ? "Startup" : "Investor";
 
-  return {
-    name: `${otherRole} (pending backend integration)`,
-    role: otherRole,
-    focus: "Not yet connected to a real matchmaking backend",
-    initials: otherRole === "Startup" ? "SU" : "IN",
-  };
-}
 
 /**
  * recordConnectionHistory(match, contactShared)
@@ -877,76 +868,544 @@ function logout() {
    Simulates the matchmaking search for demo purposes.
    ========================================================= */
 
+   function startMatching() {
+
+  let statusIndex = 0;
+
+  const statusEl =
+    document.getElementById("searchStatusText");
+
+  statusInterval = setInterval(() => {
+
+    statusIndex =
+      (statusIndex + 1) %
+      SEARCH_STATUS_MESSAGES.length;
+
+    statusEl.textContent =
+      SEARCH_STATUS_MESSAGES[statusIndex];
+
+  }, 1400);
+
+
+  const profile =
+    scGet(STORAGE_KEYS.userProfile);
+
+  if (!profile) {
+
+    console.error(
+      "No user profile found."
+    );
+
+    statusEl.textContent =
+      "User profile not found.";
+
+    return;
+  }
+
+
+  const userId =
+    profile.uid ||
+    profile.userId ||
+    profile.id ||
+    null;
+
+
+  const role =
+    profile.role;
+
+
+  if (!userId || !role) {
+
+    console.error(
+      "Missing userId or role:",
+      {
+        userId,
+        role
+      }
+    );
+
+    statusEl.textContent =
+      "Profile information is incomplete.";
+
+    return;
+  }
+
+
+  console.log(
+    "Joining matchmaking queue:",
+    {
+      userId,
+      role
+    }
+  );
+
+
+  socket = io();
+
+
+  socket.on("connect", () => {
+
+    console.log(
+      "MATCH SOCKET CONNECTED:",
+      socket.id
+    );
+
+
+    socket.emit("findMatch", {
+
+      userId: userId,
+
+      role: role
+
+    });
+
+
+    console.log(
+      "findMatch emitted:",
+      {
+        userId,
+        role
+      }
+    );
+
+  });
+
+
+  socket.on("waitingForMatch", () => {
+
+    console.log(
+      "Waiting for another user..."
+    );
+
+    statusEl.textContent =
+      "Waiting for another connection...";
+
+  });
+
+
+  socket.on("matchFound", (matchData) => {
+
+    console.log(
+      "REAL MATCH FOUND:",
+      matchData
+    );
+
+
+    clearInterval(statusInterval);
+
+
+    const match = {
+
+      matchId:
+        matchData.matchId,
+
+      roomId:
+        matchData.roomId,
+
+      matchedUserId:
+        matchData.matchedUserId,
+
+      role:
+        role === "Investor"
+          ? "Startup"
+          : "Investor"
+
+    };
+
+
+    scSet(
+      STORAGE_KEYS.currentMatch,
+      match
+    );
+
+
+    showMatchFound(match);
+
+  });
+
+
+  socket.on("matchmakingError", (data) => {
+
+    console.error(
+      "Matchmaking error:",
+      data
+    );
+
+
+    clearInterval(statusInterval);
+
+
+    statusEl.textContent =
+      data.error ||
+      "Matchmaking error occurred.";
+
+  });
+
+
+  socket.on("connect_error", (error) => {
+
+    console.error(
+      "Socket connection error:",
+      error
+    );
+
+
+    clearInterval(statusInterval);
+
+
+    statusEl.textContent =
+      "Unable to connect to matchmaking server.";
+
+  });
+
+}
+
+/* ===== REAL SOCKET.IO MATCHMAKING ===== */
+
 const SEARCH_STATUS_MESSAGES = [
-  "Scanning the network…",
-  "Checking industry overlap…",
-  "Looking for the right stage fit…",
-  "Almost there…",
+  "Scanning the network...",
+  "Checking industry overlap...",
+  "Looking for the right stage fit...",
+  "Almost there..."
 ];
 
 let statusInterval = null;
-let matchTimeout = null;
+let matchSocket = null;
+let isMatched = false;
 
 document.addEventListener("DOMContentLoaded", () => {
+
   const profile = scGet(STORAGE_KEYS.userProfile);
-  const lookingFor = profile?.role === "Investor" ? "Startup" : "Investor";
-  document.getElementById("searchSubtext").textContent = `Looking for a ${lookingFor}`;
+
+  if (!profile) {
+    console.error("No user profile found.");
+    alert("User profile not found. Please login again.");
+    window.location.href = "login.html";
+    return;
+  }
+
+  const myRole = profile.role;
+
+  const lookingFor =
+    myRole === "Investor"
+      ? "Startup"
+      : "Investor";
+
+  document.getElementById("searchSubtext").textContent =
+    `Looking for a ${lookingFor}`;
 
   startMatching();
 });
 
-/**
- * startMatching()
- * INTEGRATION POINT: Socket.IO / Matchmaking API
- *
- * This currently fakes a search with setTimeout + rotating status
- * text. A teammate should replace this with a real Socket.IO flow:
- *
- *   socket.emit("join-matchmaking-queue", { userId });
- *   socket.on("match-found", (matchData) => { ... });
- */
+
 function startMatching() {
+
+  const profile = scGet(STORAGE_KEYS.userProfile);
+
+  if (!profile) {
+    console.error("No user profile available.");
+    return;
+  }
+
+  const userId =
+    profile.uid ||
+    profile.userId ||
+    profile.id ||
+    null;
+
+  const role = profile.role || null;
+
+  if (!userId || !role) {
+
+    console.error("Missing user ID or role:", {
+      userId,
+      role
+    });
+
+    alert("Your user profile is incomplete.");
+    return;
+  }
+
+  console.log("Starting matchmaking:", {
+    userId,
+    role
+  });
+
+
+  /* -----------------------------
+     STATUS TEXT ANIMATION
+     ----------------------------- */
+
   let statusIndex = 0;
-  const statusEl = document.getElementById("searchStatusText");
+
+  const statusEl =
+    document.getElementById("searchStatusText");
 
   statusInterval = setInterval(() => {
-    statusIndex = (statusIndex + 1) % SEARCH_STATUS_MESSAGES.length;
-    statusEl.textContent = SEARCH_STATUS_MESSAGES[statusIndex];
+
+    statusIndex =
+      (statusIndex + 1) %
+      SEARCH_STATUS_MESSAGES.length;
+
+    statusEl.textContent =
+      SEARCH_STATUS_MESSAGES[statusIndex];
+
   }, 1400);
 
-  // Simulate finding a match after a few seconds
-  matchTimeout = setTimeout(() => {
-    const match = getSimulatedMatch();
-    scSet(STORAGE_KEYS.currentMatch, match);
-    showMatchFound(match);
-  }, 4200);
+
+  /* -----------------------------
+     CONNECT SOCKET.IO
+     ----------------------------- */
+
+  matchSocket = io();
+
+
+  matchSocket.on("connect", () => {
+
+    console.log(
+      "Matchmaking socket connected:",
+      matchSocket.id
+    );
+
+
+    /* -----------------------------
+       JOIN MATCHMAKING QUEUE
+       ----------------------------- */
+
+    console.log(
+      "Joining matchmaking queue:",
+      {
+        userId,
+        role
+      }
+    );
+
+    matchSocket.emit("findMatch", {
+
+      userId: userId,
+
+      role: role
+
+    });
+
+  });
+
+
+  /* -----------------------------
+     WAITING FOR MATCH
+     ----------------------------- */
+
+  matchSocket.on(
+    "waitingForMatch",
+    () => {
+
+      console.log(
+        "Waiting for another user..."
+      );
+
+      const statusEl =
+        document.getElementById(
+          "searchStatusText"
+        );
+
+      statusEl.textContent =
+        "Waiting for another connection...";
+
+    }
+  );
+
+
+  /* -----------------------------
+     MATCH FOUND
+     ----------------------------- */
+
+  matchSocket.on(
+    "matchFound",
+    (matchData) => {
+
+      console.log(
+        "REAL MATCH FOUND:",
+        matchData
+      );
+
+      isMatched = true;
+
+      clearInterval(statusInterval);
+
+
+      /*
+       * Save the real match information.
+       *
+       * chat.html reads these values.
+       */
+
+      const currentMatch = {
+
+        matchId:
+          matchData.matchId,
+
+        roomId:
+          matchData.roomId,
+
+        matchedUserId:
+          matchData.matchedUserId,
+
+        /*
+         * The backend currently does not send
+         * the matched user's name/profile yet.
+         *
+         * Use a neutral label for now.
+         */
+
+        name:
+          "Your Connection",
+
+        role:
+          role === "Investor"
+            ? "Startup"
+            : "Investor",
+
+        initials:
+          role === "Investor"
+            ? "SU"
+            : "IN"
+
+      };
+
+
+      scSet(
+        STORAGE_KEYS.currentMatch,
+        currentMatch
+      );
+
+
+      showMatchFound(
+        currentMatch
+      );
+
+    }
+  );
+
+
+  /* -----------------------------
+     MATCHMAKING ERROR
+     ----------------------------- */
+
+  matchSocket.on(
+    "matchmakingError",
+    (data) => {
+
+      console.error(
+        "Matchmaking error:",
+        data
+      );
+
+      clearInterval(statusInterval);
+
+      alert(
+        data?.error ||
+        "Matchmaking failed."
+      );
+
+    }
+  );
+
+
+  /* -----------------------------
+     SOCKET ERROR
+     ----------------------------- */
+
+  matchSocket.on(
+    "connect_error",
+    (error) => {
+
+      console.error(
+        "Matchmaking socket error:",
+        error
+      );
+
+      const statusEl =
+        document.getElementById(
+          "searchStatusText"
+        );
+
+      statusEl.textContent =
+        "Unable to connect to matchmaking server.";
+
+    }
+  );
 }
+
+
+/* =========================================================
+   SHOW REAL MATCH
+   ========================================================= */
 
 function showMatchFound(match) {
+
   clearInterval(statusInterval);
 
-  document.getElementById("searchingState").classList.add("hidden");
-  document.getElementById("foundState").classList.remove("hidden");
-  document.getElementById("foundSubtext").textContent =
-    `You're paired with ${match.name} (${match.role})`;
+  document
+    .getElementById("searchingState")
+    .classList.add("hidden");
 
-  // Give the user a moment to see the "Match Found!" state, then
-  // move into the chat room.
+  document
+    .getElementById("foundState")
+    .classList.remove("hidden");
+
+
+  document
+    .getElementById("foundSubtext")
+    .textContent =
+      `You're paired with a ${match.role}`;
+
+
+  console.log(
+    "Opening chat with match:",
+    match
+  );
+
+
   setTimeout(() => {
-    window.location.href = "chat.html";
+
+    window.location.href =
+      "chat.html";
+
   }, 1600);
+
 }
 
-/**
- * cancelMatching()
- * INTEGRATION POINT: Socket.IO
- * Should emit a "leave-matchmaking-queue" event on a real backend.
- */
+
+/* =========================================================
+   CANCEL MATCHING
+   ========================================================= */
+
 function cancelMatching() {
+
   clearInterval(statusInterval);
+
   clearTimeout(matchTimeout);
-  window.location.href = "dashboard.html";
+
+
+  if (socket && socket.connected) {
+
+    socket.emit("cancelMatch");
+
+    socket.disconnect();
+
+  }
+
+
+  console.log(
+    "Matchmaking cancelled."
+  );
+
+
+  window.location.href =
+    "dashboard.html";
+
 }
+
 
 </script>
 </body>
