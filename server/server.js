@@ -37,11 +37,13 @@ const userRoutes = require("./routes/users");
 const matchRoutes = require("./routes/matches");
 const messageRoutes = require("./routes/messages");
 const contactRoutes = require("./routes/contacts");
+const historyRoutes = require("./routes/history");
 
 app.use("/api/users", userRoutes);
 app.use("/api/matches", matchRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/contacts", contactRoutes);
+app.use("/api/history", historyRoutes);
 
 app.use(express.static(path.join(__dirname, "../client")));
 

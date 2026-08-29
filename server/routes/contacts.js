@@ -1,79 +1,103 @@
 const express = require("express");
 const router = express.Router();
 
-const {
-    createContact,
-    getContact,
-    updateContactStatus
-} = require("../services/contacts");
+const { db } = require("../config/firebase-admin");
+const { FieldValue } = require("firebase-admin/firestore");
 
-router.post("/", async (req, res) => {
+// GET all contacts for a user
+router.get("/:userId", async (req, res) => {
     try {
-        const {
-            matchId,
-            requesterId,
-            receiverId,
-            requesterEmail,
-            receiverEmail
-        } = req.body;
+        const { userId } = req.params;
 
-        if (!matchId || !requesterId || !receiverId) {
-            return res.status(400).json({
-                error: "matchId, requesterId and receiverId are required"
-            });
-        }
+        const snapshot = await db
+            .collection("contacts")
+            .doc(userId)
+            .collection("list")
+            .get();
 
-        const contactId = `${matchId}_${requesterId}`;
+        const contacts = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
 
-        const contact = await createContact(contactId, {
-            matchId,
-            requesterId,
-            receiverId,
-            requesterEmail,
-            receiverEmail
-        });
-
-        res.status(201).json(contact);
+        res.json(contacts);
 
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: error.message });
-    }
-});
+        console.error("Get contacts error:", error);
 
-router.get("/:contactId", async (req, res) => {
-    try {
-        const contact = await getContact(req.params.contactId);
-
-        if (!contact) {
-            return res.status(404).json({
-                error: "Contact not found"
-            });
-        }
-
-        res.json(contact);
-
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.put("/:contactId/status", async (req, res) => {
-    try {
-        const { status } = req.body;
-
-        const contact = await updateContactStatus(
-            req.params.contactId,
-            status
-        );
-
-        res.json(contact);
-
-    } catch (error) {
-        res.status(400).json({
+        res.status(500).json({
             error: error.message
         });
     }
 });
+
+
+// ADD contact
+router.post("/add", async (req, res) => {
+    try {
+        const {
+            userId,
+            contactUserId,
+            name
+        } = req.body;
+
+        if (!userId || !contactUserId) {
+            return res.status(400).json({
+                message: "User IDs are required"
+            });
+        }
+
+        await db
+            .collection("contacts")
+            .doc(userId)
+            .collection("list")
+            .doc(contactUserId)
+            .set({
+                name: name || "",
+                addedAt: FieldValue.serverTimestamp()
+            });
+
+        res.json({
+            message: "Contact added successfully"
+        });
+
+    } catch (error) {
+        console.error("Add contact error:", error);
+
+        res.status(500).json({
+            error: error.message
+        });
+    }
+});
+
+
+// REMOVE contact
+router.delete("/:userId/:contactUserId", async (req, res) => {
+    try {
+        const {
+            userId,
+            contactUserId
+        } = req.params;
+
+        await db
+            .collection("contacts")
+            .doc(userId)
+            .collection("list")
+            .doc(contactUserId)
+            .delete();
+
+        res.json({
+            message: "Contact removed"
+        });
+
+    } catch (error) {
+        console.error("Remove contact error:", error);
+
+        res.status(500).json({
+            error: error.message
+        });
+    }
+});
+
 
 module.exports = router;
