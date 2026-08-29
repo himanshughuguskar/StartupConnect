@@ -1033,11 +1033,29 @@ function validateForm(formEl) {
  * keyed by the authenticated user's UID.
  */
 function saveProfile(role, data) {
-  const profile = { role, ...data, completedAt: new Date().toISOString() };
+
+  // Get an existing user ID if one already exists
+  let userId = localStorage.getItem("sc_userId");
+
+  // Create a stable ID for this browser if none exists
+  if (!userId) {
+    userId = "user_" + crypto.randomUUID();
+    localStorage.setItem("sc_userId", userId);
+  }
+
+  const profile = {
+    userId,
+    role,
+    ...data,
+    completedAt: new Date().toISOString()
+  };
+
   scSet(STORAGE_KEYS.userProfile, profile);
+
+  console.log("Profile saved:", profile);
+
   window.location.href = "dashboard.html";
 }
-
 document.getElementById("startupForm").addEventListener("submit", (e) => {
   e.preventDefault();
   if (!validateForm(e.target)) return;
