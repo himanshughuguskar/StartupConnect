@@ -981,6 +981,13 @@ h1, h2, h3, h4 {
     </div>
   </div>
 
+ <script type="module">
+  import { auth, onAuthStateChanged } from "./js/firebase.js";
+
+  window.startupConnectAuth = auth;
+  window.startupConnectOnAuthStateChanged = onAuthStateChanged;
+</script>
+
 <script>
 /* ===== main.js ===== */
 /* =========================================================
@@ -1059,7 +1066,7 @@ let typingTimer = null;
 /*
  * Get the logged-in user's profile.
  */
-function initializeChatData() {
+function initializeChatData(firebaseUid) {
 
   const profile = scGet(STORAGE_KEYS.userProfile);
 
@@ -1068,20 +1075,8 @@ function initializeChatData() {
     return;
   }
 
-  /*
-   * Your Firebase/user profile should contain uid.
-   * We also support userId in case another frontend module
-   * uses that property.
-   */
-  currentUserId =
-    profile.uid ||
-    profile.userId ||
-    profile.id ||
-    null;
+  currentUserId = firebaseUid;
 
-  /*
-   * Read the real match created by matchmaking.
-   */
   const match = scGet(STORAGE_KEYS.currentMatch);
 
   if (match) {
@@ -1107,6 +1102,54 @@ function initializeChatData() {
     currentRoomId,
     matchedUserId
   });
+}
+
+/* =========================================================
+   TYPING INDICATOR
+   ========================================================= */
+
+function showTypingIndicator(userId) {
+
+  // Don't show our own typing status
+  if (userId === currentUserId) {
+    return;
+  }
+
+  let indicator = document.getElementById("typingIndicator");
+
+  // Create indicator if it doesn't exist
+  if (!indicator) {
+    indicator = document.createElement("div");
+    indicator.id = "typingIndicator";
+
+    indicator.textContent = "Your connection is typing...";
+
+    indicator.style.padding = "8px 20px";
+    indicator.style.fontSize = "14px";
+    indicator.style.opacity = "0.7";
+
+    const chatMessages =
+      document.getElementById("chatMessages");
+
+    if (chatMessages && chatMessages.parentElement) {
+      chatMessages.parentElement.appendChild(indicator);
+    } else {
+      document.body.appendChild(indicator);
+    }
+  }
+
+  indicator.style.display = "block";
+}
+
+
+function hideTypingIndicator() {
+
+  const indicator =
+    document.getElementById("typingIndicator");
+
+  if (indicator) {
+    indicator.style.display = "none";
+  }
 }
 
 function connectChatSocket() {
@@ -1501,7 +1544,7 @@ function receiveMessageFromServer(msg) {
  * the other person replying.
  */
 
- 
+
 /* =========================================================
    CONTACT SHARING FLOW
    ========================================================= */
@@ -1654,11 +1697,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
   console.log("CHAT PAGE INITIALIZING...");
 
-  initializeChatData();
+  const firebaseAuth = window.startupConnectAuth;
+  const onAuthStateChanged =
+    window.startupConnectOnAuthStateChanged;
 
-  console.log("Chat data initialized.");
+  if (!firebaseAuth || !onAuthStateChanged) {
+    console.error("Firebase Auth is not available.");
+    return;
+  }
 
-  connectChatSocket();
+  onAuthStateChanged(firebaseAuth, (user) => {
+
+    if (!user) {
+      console.error("No authenticated Firebase user.");
+      window.location.href = "login.html";
+      return;
+    }
+
+    console.log("Firebase authentication restored.");
+    console.log("Firebase UID:", user.uid);
+
+    initializeChatData(user.uid);
+
+    console.log("Chat data initialized.");
+
+    connectChatSocket();
+  });
 
 });
 
