@@ -3,11 +3,13 @@ const router = express.Router();
 
 const { db } = require("../config/firebase-admin");
 const { FieldValue } = require("firebase-admin/firestore");
+const authenticate = require("../middleware/auth");
 
-// GET all contacts for a user
-router.get("/:userId", async (req, res) => {
+
+// GET all contacts for authenticated user
+router.get("/", authenticate, async (req, res) => {
     try {
-        const { userId } = req.params;
+        const userId = req.user.uid;
 
         const snapshot = await db
             .collection("contacts")
@@ -33,17 +35,24 @@ router.get("/:userId", async (req, res) => {
 
 
 // ADD contact
-router.post("/add", async (req, res) => {
+router.post("/add", authenticate, async (req, res) => {
     try {
+        const userId = req.user.uid;
+
         const {
-            userId,
             contactUserId,
             name
         } = req.body;
 
-        if (!userId || !contactUserId) {
+        if (!contactUserId) {
             return res.status(400).json({
-                message: "User IDs are required"
+                message: "Contact user ID is required"
+            });
+        }
+
+        if (userId === contactUserId) {
+            return res.status(400).json({
+                message: "You cannot add yourself as a contact"
             });
         }
 
@@ -72,12 +81,10 @@ router.post("/add", async (req, res) => {
 
 
 // REMOVE contact
-router.delete("/:userId/:contactUserId", async (req, res) => {
+router.delete("/:contactUserId", authenticate, async (req, res) => {
     try {
-        const {
-            userId,
-            contactUserId
-        } = req.params;
+        const userId = req.user.uid;
+        const { contactUserId } = req.params;
 
         await db
             .collection("contacts")
