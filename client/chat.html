@@ -981,6 +981,28 @@ h1, h2, h3, h4 {
     </div>
   </div>
 
+ <script type="module">
+  import { auth, onAuthStateChanged } from "./js/firebase.js";
+
+  window.startupConnectAuth = auth;
+  async function getFirebaseAuthHeaders() {
+  const firebaseAuth = window.startupConnectAuth;
+  const user = firebaseAuth?.currentUser;
+
+  if (!user) {
+    throw new Error("No authenticated Firebase user.");
+  }
+
+  const token = await user.getIdToken();
+
+  return {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${token}`
+  };
+}
+  window.startupConnectOnAuthStateChanged = onAuthStateChanged;
+</script>
+
 <script>
 /* ===== main.js ===== */
 /* =========================================================
@@ -1059,7 +1081,7 @@ let typingTimer = null;
 /*
  * Get the logged-in user's profile.
  */
-function initializeChatData() {
+function initializeChatData(firebaseUid) {
 
   const profile = scGet(STORAGE_KEYS.userProfile);
 
@@ -1068,20 +1090,8 @@ function initializeChatData() {
     return;
   }
 
-  /*
-   * Your Firebase/user profile should contain uid.
-   * We also support userId in case another frontend module
-   * uses that property.
-   */
-  currentUserId =
-    profile.uid ||
-    profile.userId ||
-    profile.id ||
-    null;
+  currentUserId = firebaseUid;
 
-  /*
-   * Read the real match created by matchmaking.
-   */
   const match = scGet(STORAGE_KEYS.currentMatch);
 
   if (match) {
@@ -1107,6 +1117,54 @@ function initializeChatData() {
     currentRoomId,
     matchedUserId
   });
+}
+
+/* =========================================================
+   TYPING INDICATOR
+   ========================================================= */
+
+function showTypingIndicator(userId) {
+
+  // Don't show our own typing status
+  if (userId === currentUserId) {
+    return;
+  }
+
+  let indicator = document.getElementById("typingIndicator");
+
+  // Create indicator if it doesn't exist
+  if (!indicator) {
+    indicator = document.createElement("div");
+    indicator.id = "typingIndicator";
+
+    indicator.textContent = "Your connection is typing...";
+
+    indicator.style.padding = "8px 20px";
+    indicator.style.fontSize = "14px";
+    indicator.style.opacity = "0.7";
+
+    const chatMessages =
+      document.getElementById("chatMessages");
+
+    if (chatMessages && chatMessages.parentElement) {
+      chatMessages.parentElement.appendChild(indicator);
+    } else {
+      document.body.appendChild(indicator);
+    }
+  }
+
+  indicator.style.display = "block";
+}
+
+
+function hideTypingIndicator() {
+
+  const indicator =
+    document.getElementById("typingIndicator");
+
+  if (indicator) {
+    indicator.style.display = "none";
+  }
 }
 
 function connectChatSocket() {
@@ -1311,16 +1369,47 @@ function getSimulatedMatch() {
  * INTEGRATION POINT: write this record to Firestore / an API
  * instead of (or in addition to) localStorage once available.
  */
-function recordConnectionHistory(match, contactShared) {
-  const history = scGet(STORAGE_KEYS.connectionHistory) || [];
-  history.unshift({
-    name: match.name,
-    role: match.role,
-    date: new Date().toLocaleDateString(undefined, { month: "short", day: "2-digit", year: "numeric" }),
-    contactShared: !!contactShared,
-    initials: match.initials,
-  });
-  scSet(STORAGE_KEYS.connectionHistory, history);
+async function recordConnectionHistory(match, contactShared) {
+
+  if (!currentUserId || !matchedUserId) {
+    console.error("Cannot save history: missing user IDs.");
+    return;
+  }
+
+  try {
+
+    const response = await fetch("/api/history/add", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        userId: currentUserId,
+        otherUserId: matchedUserId,
+        type: contactShared ? "contact_shared" : "match"
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error ||
+        data.message ||
+        "Failed to save history"
+      );
+    }
+
+    console.log("Interaction history saved:", data);
+
+  } catch (error) {
+
+    console.error(
+      "Connection history error:",
+      error
+    );
+
+  }
 }
 
 /**
@@ -1501,7 +1590,7 @@ function receiveMessageFromServer(msg) {
  * the other person replying.
  */
 
- 
+
 /* =========================================================
    CONTACT SHARING FLOW
    ========================================================= */
@@ -1576,25 +1665,52 @@ function stopTyping() {
  * simulate the other person sending their own request back —
  * so the "incoming request" modal can be demoed too.
  */
-function confirmContactShareRequest() {
+async function confirmContactShareRequest() {
+
   const fields = {
     email: document.getElementById("shareEmail").checked,
     linkedin: document.getElementById("shareLinkedin").checked,
-    phone: document.getElementById("sharePhone").checked,
+    phone: document.getElementById("sharePhone").checked
   };
 
-  console.log("Contact share requested with fields:", fields);
-  // TODO: Connect this to the Contact Sharing API / Socket.IO event
+  console.log("Contact share requested:", fields);
 
-  closeModal("shareContactModal");
-  openModal("requestSentModal");
+  if (!currentUserId || !matchedUserId) {
+    alert("User identity or matched user is missing.");
+    return;
+  }
 
-  // Simulate the other user reciprocating after a short delay
-  setTimeout(() => {
-    document.getElementById("incomingShareText").textContent =
-      `${currentMatch.name} would like to exchange contact details with you.`;
-    openModal("incomingShareModal");
-  }, 2500);
+  try {
+
+    const response = await fetch("/api/contacts/add", {
+  method: "POST",
+  headers: await getFirebaseAuthHeaders(),
+  body: JSON.stringify({
+    contactUserId: matchedUserId,
+    name: currentMatch?.name || ""
+  })
+});
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || data.message || "Failed to save contact");
+    }
+
+    console.log("Contact saved:", data);
+
+    closeModal("shareContactModal");
+    openModal("requestSentModal");
+
+    contactWasShared = true;
+
+  } catch (error) {
+
+    console.error("Contact sharing error:", error);
+
+    alert("Unable to save contact. Please try again.");
+
+  }
 }
 
 /**
@@ -1603,12 +1719,47 @@ function confirmContactShareRequest() {
  * Should notify the backend that this user accepted, which then
  * releases both users' contact info to each other.
  */
-function acceptContactShare() {
+async function acceptContactShare() {
+
   closeModal("incomingShareModal");
-  contactWasShared = true;
-  // Nothing is actually exchanged yet — the message is honest about
-  // that until the Contact Sharing API integration point above is wired up.
-  receiveMessage("🤝 Contact sharing accepted. (Actual contact details will be delivered once the backend is connected.)");
+
+  if (!currentUserId || !matchedUserId) {
+    alert("User identity or matched user is missing.");
+    return;
+  }
+
+  try {
+
+   const response = await fetch("/api/contacts/add", {
+  method: "POST",
+  headers: await getFirebaseAuthHeaders(),
+  body: JSON.stringify({
+  otherUserId: matchedUserId,
+  type: contactWasShared ? "contact_shared" : "match"
+})
+});
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || data.message || "Failed to save contact");
+    }
+
+    contactWasShared = true;
+
+    console.log("Contact sharing accepted:", data);
+
+    receiveMessage(
+      "🤝 Contact sharing accepted."
+    );
+
+  } catch (error) {
+
+    console.error("Accept contact sharing error:", error);
+
+    alert("Unable to save contact.");
+
+  }
 }
 
 /**
@@ -1654,11 +1805,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
   console.log("CHAT PAGE INITIALIZING...");
 
-  initializeChatData();
+  const firebaseAuth = window.startupConnectAuth;
+  const onAuthStateChanged =
+    window.startupConnectOnAuthStateChanged;
 
-  console.log("Chat data initialized.");
+  if (!firebaseAuth || !onAuthStateChanged) {
+    console.error("Firebase Auth is not available.");
+    return;
+  }
 
-  connectChatSocket();
+  onAuthStateChanged(firebaseAuth, (user) => {
+
+    if (!user) {
+      console.error("No authenticated Firebase user.");
+      window.location.href = "login.html";
+      return;
+    }
+
+    console.log("Firebase authentication restored.");
+    console.log("Firebase UID:", user.uid);
+
+    initializeChatData(user.uid);
+
+    console.log("Chat data initialized.");
+
+    connectChatSocket();
+  });
 
 });
 

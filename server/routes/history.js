@@ -3,20 +3,22 @@ const router = express.Router();
 
 const { db } = require("../config/firebase-admin");
 const { FieldValue } = require("firebase-admin/firestore");
+const authenticate = require("../middleware/auth");
 
 
 // SAVE an interaction
-router.post("/add", async (req, res) => {
+router.post("/add", authenticate, async (req, res) => {
     try {
+        const userId = req.user.uid;
+
         const {
-            userId,
             otherUserId,
             type
         } = req.body;
 
-        if (!userId || !otherUserId) {
+        if (!otherUserId) {
             return res.status(400).json({
-                message: "User IDs are required"
+                message: "Other user ID is required"
             });
         }
 
@@ -45,9 +47,9 @@ router.post("/add", async (req, res) => {
 
 
 // GET interaction history
-router.get("/:userId", async (req, res) => {
+router.get("/", authenticate, async (req, res) => {
     try {
-        const { userId } = req.params;
+        const userId = req.user.uid;
 
         const snapshot = await db
             .collection("history")

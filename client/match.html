@@ -755,6 +755,13 @@ h1, h2, h3, h4 {
     </div>
   </div>
 
+  <script type="module">
+  import { auth, onAuthStateChanged } from "./js/firebase.js";
+
+  window.startupConnectAuth = auth;
+  window.startupConnectOnAuthStateChanged = onAuthStateChanged;
+</script>
+
   <script src="/socket.io/socket.io.js"></script>
 <script>
 /* ===== main.js ===== */
@@ -903,11 +910,16 @@ function logout() {
   }
 
 
-  const userId =
-    profile.uid ||
-    profile.userId ||
-    profile.id ||
-    null;
+ const firebaseAuth = window.startupConnectAuth;
+const user = firebaseAuth?.currentUser;
+
+if (!user) {
+  console.error("No authenticated Firebase user.");
+  statusEl.textContent = "Authentication required.";
+  return;
+}
+
+const userId = user.uid;
 
 
   const role =
@@ -1094,11 +1106,33 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("searchSubtext").textContent =
     `Looking for a ${lookingFor}`;
 
-  startMatching();
+  const firebaseAuth = window.startupConnectAuth;
+  const onAuthStateChanged =
+    window.startupConnectOnAuthStateChanged;
+
+  if (!firebaseAuth || !onAuthStateChanged) {
+    console.error("Firebase Auth is not available.");
+    return;
+  }
+
+  onAuthStateChanged(firebaseAuth, (user) => {
+
+    if (!user) {
+      console.error("No authenticated Firebase user.");
+      alert("Please login again.");
+      window.location.href = "login.html";
+      return;
+    }
+
+    console.log("Firebase authentication restored.");
+    console.log("Firebase UID:", user.uid);
+
+    startMatching(user.uid);
+  });
 });
 
 
-function startMatching() {
+function startMatching(firebaseUid) {
 
   const profile = scGet(STORAGE_KEYS.userProfile);
 
@@ -1107,11 +1141,17 @@ function startMatching() {
     return;
   }
 
-  const userId =
-    profile.uid ||
-    profile.userId ||
-    profile.id ||
-    null;
+ const firebaseAuth = window.startupConnectAuth;
+const user = firebaseAuth?.currentUser;
+
+if (!user) {
+  console.error("No authenticated Firebase user.");
+  alert("Authentication required. Please log in again.");
+  window.location.href = "login.html";
+  return;
+}
+
+const userId = firebaseUid;
 
   const role = profile.role || null;
 
