@@ -854,6 +854,12 @@ h1, h2, h3, h4 {
     </div>
   </div>
 
+  <script type="module">
+  import { auth } from "./js/firebase.js";
+
+  window.startupConnectAuth = auth;
+</script>
+
 <script>
 /* ===== main.js ===== */
 /* =========================================================
@@ -1034,25 +1040,45 @@ function validateForm(formEl) {
  */
 function saveProfile(role, data) {
 
-  // Get an existing user ID if one already exists
-  let userId = localStorage.getItem("sc_userId");
+  // Get the currently authenticated Firebase user
+  const firebaseAuth = window.startupConnectAuth;
+  const user = firebaseAuth?.currentUser;
 
-  // Create a stable ID for this browser if none exists
-  if (!userId) {
-    userId = "user_" + crypto.randomUUID();
-    localStorage.setItem("sc_userId", userId);
+  // User must be logged in with Google
+  if (!user) {
+    alert("Your Google login session was not found. Please login again.");
+    window.location.href = "login.html";
+    return;
   }
 
+  // IMPORTANT:
+  // Firebase UID is now the single identity used by StartupConnect.
+  const userId = user.uid;
+
   const profile = {
-    userId,
-    role,
+    userId: userId,
+    firebaseUid: user.uid,
+    name: data.name || "",
+    role: role,
     ...data,
     completedAt: new Date().toISOString()
   };
 
+  // Keep the profile locally for the existing frontend
   scSet(STORAGE_KEYS.userProfile, profile);
 
-  console.log("Profile saved:", profile);
+  // Keep this temporarily for compatibility with old modules.
+  // It contains the REAL Firebase UID, not a generated ID.
+  localStorage.setItem("sc_userId", user.uid);
+
+  console.log("=================================");
+  console.log("StartupConnect Profile Saved");
+  console.log("Firebase UID:", user.uid);
+  console.log("Email:", user.email);
+  console.log("Name:", user.displayName);
+  console.log("Role:", role);
+  console.log("Profile:", profile);
+  console.log("=================================");
 
   window.location.href = "dashboard.html";
 }
