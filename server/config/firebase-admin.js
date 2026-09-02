@@ -2,19 +2,17 @@ const { initializeApp, cert, getApps } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getAuth } = require("firebase-admin/auth");
 const dotenv = require("dotenv");
-const path = require("path");
 
 dotenv.config();
-
-const serviceAccount = require(
-    path.join(__dirname, "../../serviceAccountKey.json")
-);
 
 const app = getApps().length
     ? getApps()[0]
     : initializeApp({
-        credential: cert(serviceAccount),
-        projectId: process.env.GCLOUD_PROJECT
+        credential: cert({
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n")
+        })
     });
 
 const db = getFirestore(app);
